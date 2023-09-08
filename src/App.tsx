@@ -1,7 +1,7 @@
 import {
-  useState,
   useCallback,
   useEffect,
+  useState,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
@@ -19,21 +19,7 @@ export default function App() {
   const [scripts, setScripts] = useState<Script[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  if (!window.speechSynthesis) {
-    return <span>Aw... your browser does not support Speech Synthesis</span>;
-  }
-
-  const handleSubmit = (
-    e: FormEvent<HTMLFormElement> | KeyboardEvent<HTMLTextAreaElement>
-  ) => {
-    e.preventDefault();
-    if (isSpeaking) return;
-    if (inputValue.trim() === "") return;
-    setScripts([...scripts, { text: inputValue, createdAt: new Date() }]);
-    setInputValue("");
-  };
-
-  const handleStart = async () => {
+  const handleStart = useCallback(async () => {
     if (isSpeaking) return;
     setIsSpeaking(true);
     const synth = window.speechSynthesis;
@@ -48,6 +34,20 @@ export default function App() {
         if (i === scripts.length - 1) setIsSpeaking(false);
       });
     }
+  }, [isSpeaking, scripts, selectedVoice, voiceInterval]);
+
+  if (!window.speechSynthesis) {
+    return <span>Aw... your browser does not support Speech Synthesis</span>;
+  }
+
+  const handleSubmit = (
+    e: FormEvent<HTMLFormElement> | KeyboardEvent<HTMLTextAreaElement>
+  ) => {
+    e.preventDefault();
+    if (isSpeaking) return;
+    if (inputValue.trim() === "") return;
+    setScripts([...scripts, { text: inputValue, createdAt: new Date() }]);
+    setInputValue("");
   };
 
   return (
@@ -57,6 +57,7 @@ export default function App() {
         <VoiceSelector
           selected={selectedVoice}
           setSelected={setSelectedVoice}
+          isSpeaking={isSpeaking}
         />
       </div>
       <div className='form-field-wrap'>
@@ -64,6 +65,7 @@ export default function App() {
         <input
           inputMode='decimal'
           value={voiceInterval}
+          disabled={isSpeaking}
           maxLength={3}
           onChange={(e) =>
             setVoiceInterval(Number(e.target.value.replace(/[^0-9]/g, "")))
@@ -126,10 +128,15 @@ export default function App() {
 
 interface VoiceSelectorProps {
   selected: number;
+  isSpeaking: boolean;
   setSelected: (selectedIndex: number) => void;
 }
 
-const VoiceSelector = ({ selected = 0, setSelected }: VoiceSelectorProps) => {
+const VoiceSelector = ({
+  selected = 0,
+  isSpeaking,
+  setSelected,
+}: VoiceSelectorProps) => {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   const populateVoiceList = useCallback(() => {
@@ -148,6 +155,7 @@ const VoiceSelector = ({ selected = 0, setSelected }: VoiceSelectorProps) => {
     <select
       id='voice-select'
       value={selected}
+      disabled={isSpeaking}
       onChange={(e) => setSelected(parseInt(e.target.value))}
     >
       {voices.map((voice, index) => (
