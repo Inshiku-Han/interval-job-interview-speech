@@ -1,8 +1,6 @@
 *,
 *::before,
 *::after {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
@@ -56,10 +54,6 @@
 :where(a) {
   color: inherit;
   text-underline-offset: 0.2ex;
-}
-
-:where(ul, ol) {
-  list-style: none;
 }
 
 :where(img, svg, video, canvas, audio, iframe, embed, object) {

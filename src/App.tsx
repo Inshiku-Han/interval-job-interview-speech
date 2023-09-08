@@ -5,6 +5,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+import "./App.css";
 
 type Script = {
   text: string;
@@ -13,9 +14,10 @@ type Script = {
 
 export default function App() {
   const [inputValue, setInputValue] = useState("");
-  const [voiceInterval, setVoiceInterval] = useState(0);
+  const [voiceInterval, setVoiceInterval] = useState(30);
   const [selectedVoice, setSelectedVoice] = useState(0);
   const [scripts, setScripts] = useState<Script[]>([]);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   if (!window.speechSynthesis) {
     return <span>Aw... your browser does not support Speech Synthesis</span>;
@@ -25,11 +27,15 @@ export default function App() {
     e: FormEvent<HTMLFormElement> | KeyboardEvent<HTMLTextAreaElement>
   ) => {
     e.preventDefault();
+    if (isSpeaking) return;
+    if (inputValue.trim() === "") return;
     setScripts([...scripts, { text: inputValue, createdAt: new Date() }]);
     setInputValue("");
   };
 
   const handleStart = async () => {
+    if (isSpeaking) return;
+    setIsSpeaking(true);
     const synth = window.speechSynthesis;
 
     for (let i = 0; i < scripts.length; i++) {
@@ -38,21 +44,23 @@ export default function App() {
       synth.speak(utterance);
       await new Promise((resolve) => {
         utterance.onend = () => setTimeout(resolve, voiceInterval * 1000);
+      }).finally(() => {
+        if (i === scripts.length - 1) setIsSpeaking(false);
       });
     }
   };
 
   return (
-    <main>
-      <div>
-        <label htmlFor='voice-select'>목소리 설정</label>
+    <main className='container'>
+      <div className='form-field-wrap'>
+        <label htmlFor='voice-select'>Select Voice</label>
         <VoiceSelector
           selected={selectedVoice}
           setSelected={setSelectedVoice}
         />
       </div>
-      <div>
-        <label htmlFor='voice-interval'>스크립트 간격(초)</label>
+      <div className='form-field-wrap'>
+        <label htmlFor='voice-interval'>Interval in Scripts(seconds)</label>
         <input
           inputMode='decimal'
           value={voiceInterval}
@@ -62,16 +70,16 @@ export default function App() {
           }
         />
       </div>
-      <button type='button' onClick={handleStart}>
-        시작
-      </button>
-      <fieldset>
-        <legend>스크립트 목록</legend>
-        <form onSubmit={handleSubmit}>
+
+      <form onSubmit={handleSubmit} className='sub-container'>
+        <div className='form-field-wrap'>
+          <label htmlFor='input'>Input</label>
           <textarea
-            placeholder='스크립트 입력'
+            id='input'
+            placeholder='Fill in the script'
             value={inputValue}
             maxLength={500}
+            spellCheck={false}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => {
               if (
@@ -83,16 +91,35 @@ export default function App() {
               }
             }}
           />
-          <button type='submit'>추가</button>
-        </form>
-        <ul>
-          {scripts.map((v) => (
-            <li key={v.createdAt.getTime()}>
-              <p>{v.text}</p>
-            </li>
-          ))}
-        </ul>
-      </fieldset>
+        </div>
+        <button
+          type='submit'
+          className='block-button'
+          disabled={inputValue.trim() === "" || isSpeaking}
+        >
+          Add
+        </button>
+      </form>
+      {scripts.length > 0 && (
+        <fieldset>
+          <legend>Scripts</legend>
+          <ol className='scripts'>
+            {scripts.map((v) => (
+              <li key={v.createdAt.getTime()}>
+                <p>{v.text}</p>
+              </li>
+            ))}
+          </ol>
+        </fieldset>
+      )}
+      <button
+        type='button'
+        onClick={handleStart}
+        disabled={scripts.length === 0 || isSpeaking}
+        className='block-button start-button'
+      >
+        Start
+      </button>
     </main>
   );
 }
