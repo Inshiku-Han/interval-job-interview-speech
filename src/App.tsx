@@ -1,23 +1,23 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from "react";
-import "./App.css";
-
-type Script = {
-  text: string;
-  createdAt: Date;
-};
+import { Input, Spacer } from "@nextui-org/react";
+import { type ChangeEvent, useCallback, useState } from "react";
+import Footer from "./components/Footer";
+import Form from "./components/Form";
+import List from "./components/List";
+import VoiceSelector from "./components/VoiceSelector";
+import { type Script } from "./types";
 
 export default function App() {
-  const [inputValue, setInputValue] = useState("");
   const [voiceInterval, setVoiceInterval] = useState(30);
   const [selectedVoice, setSelectedVoice] = useState(0);
   const [scripts, setScripts] = useState<Script[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleChangeVoiceInterval = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      setVoiceInterval(Number(e.target.value.replace(/[^0-9]/g, "")));
+    },
+    []
+  );
 
   const handleStart = useCallback(async () => {
     if (isSpeaking) return;
@@ -36,133 +36,38 @@ export default function App() {
     }
   }, [isSpeaking, scripts, selectedVoice, voiceInterval]);
 
-  if (!window.speechSynthesis) {
-    return <span>Aw... your browser does not support Speech Synthesis</span>;
-  }
-
-  const handleSubmit = (
-    e: FormEvent<HTMLFormElement> | KeyboardEvent<HTMLTextAreaElement>
-  ) => {
-    e.preventDefault();
-    if (isSpeaking) return;
-    if (inputValue.trim() === "") return;
-    setScripts([...scripts, { text: inputValue, createdAt: new Date() }]);
-    setInputValue("");
-  };
+  const handleDeleteScript = useCallback(
+    (index: number) => {
+      if (isSpeaking) return;
+      setScripts((p) => p.filter((_, i) => i !== index));
+    },
+    [isSpeaking]
+  );
 
   return (
-    <main className='container'>
-      <div className='form-field-wrap'>
-        <label htmlFor='voice-select'>Select Voice</label>
-        <VoiceSelector
-          selected={selectedVoice}
-          setSelected={setSelectedVoice}
-          isSpeaking={isSpeaking}
-        />
-      </div>
-      <div className='form-field-wrap'>
-        <label htmlFor='voice-interval'>Interval in Scripts(seconds)</label>
-        <input
-          inputMode='decimal'
-          value={voiceInterval}
-          disabled={isSpeaking}
-          maxLength={3}
-          onChange={(e) =>
-            setVoiceInterval(Number(e.target.value.replace(/[^0-9]/g, "")))
-          }
-        />
-      </div>
-
-      <form onSubmit={handleSubmit} className='sub-container'>
-        <div className='form-field-wrap'>
-          <label htmlFor='input'>Input</label>
-          <textarea
-            id='input'
-            placeholder='Fill in the script'
-            value={inputValue}
-            maxLength={500}
-            spellCheck={false}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (
-                e.key === "Enter" &&
-                !e.shiftKey &&
-                !e.nativeEvent.isComposing
-              ) {
-                handleSubmit(e);
-              }
-            }}
-          />
-        </div>
-        <button
-          type='submit'
-          className='block-button'
-          disabled={inputValue.trim() === "" || isSpeaking}
-        >
-          Add
-        </button>
-      </form>
-      {scripts.length > 0 && (
-        <fieldset>
-          <legend>Scripts</legend>
-          <ol className='scripts'>
-            {scripts.map((v) => (
-              <li key={v.createdAt.getTime()}>
-                <p>{v.text}</p>
-              </li>
-            ))}
-          </ol>
-        </fieldset>
-      )}
-      <button
-        type='button'
-        onClick={handleStart}
-        disabled={scripts.length === 0 || isSpeaking}
-        className='block-button start-button'
-      >
-        Start
-      </button>
+    <main className='container pt-4 pb-14'>
+      <VoiceSelector
+        selected={selectedVoice}
+        setSelected={setSelectedVoice}
+        isSpeaking={isSpeaking}
+      />
+      <Spacer y={4} />
+      <Input
+        label='Interval in Scripts(seconds)'
+        inputMode='decimal'
+        value={String(voiceInterval)}
+        isDisabled={isSpeaking}
+        maxLength={3}
+        onChange={handleChangeVoiceInterval}
+      />
+      <Spacer y={4} />
+      <Form isSpeaking={isSpeaking} setScripts={setScripts} />
+      <List scripts={scripts} handleDeleteScript={handleDeleteScript} />
+      <Footer
+        handleStart={handleStart}
+        isDisabled={scripts.length === 0}
+        isSpeaking={isSpeaking}
+      />
     </main>
   );
 }
-
-interface VoiceSelectorProps {
-  selected: number;
-  isSpeaking: boolean;
-  setSelected: (selectedIndex: number) => void;
-}
-
-const VoiceSelector = ({
-  selected = 0,
-  isSpeaking,
-  setSelected,
-}: VoiceSelectorProps) => {
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-
-  const populateVoiceList = useCallback(() => {
-    const newVoices = window.speechSynthesis.getVoices();
-    setVoices(newVoices);
-  }, []);
-
-  useEffect(() => {
-    populateVoiceList();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = populateVoiceList;
-    }
-  }, [populateVoiceList]);
-
-  return (
-    <select
-      id='voice-select'
-      value={selected}
-      disabled={isSpeaking}
-      onChange={(e) => setSelected(parseInt(e.target.value))}
-    >
-      {voices.map((voice, index) => (
-        <option key={index} value={index}>
-          {voice.name} ({voice.lang}) {voice.default && " [Default]"}
-        </option>
-      ))}
-    </select>
-  );
-};
